@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import svgwrite
-import cairosvg
 import matplotlib.pyplot as plt
 from scipy.optimize import leastsq
 from io import BytesIO
@@ -61,12 +60,12 @@ def polylines2svg(paths_XYs, svg_path):
             group.add(dwg.path(d=" ".join(path_data), fill='none', stroke='black', stroke_width=2))
     dwg.add(group)
     dwg.save()
-
+'''
 def svg_to_png(svg_path):
     png_path = svg_path.replace('.svg', '.png')
     cairosvg.svg2png(url=svg_path, write_to=png_path, background_color='white')
     return png_path
-
+'''
 def fit_circle(XY):
     def objective(params):
         cx, cy, r = params

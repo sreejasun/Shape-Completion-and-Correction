@@ -33,13 +33,6 @@ pip install streamlit pandas numpy svgwrite cairosvg matplotlib scipy
 - View Comparison: The app will display a side-by-side comparison of the original and smoothed data.
 - Download Corrected CSV: Click the "Download corrected CSV" link to download the corrected path data.
 
-## CSV File Format
-The input CSV file should have the following columns:
-- Shape_ID: Identifier for each path.
-- Point_ID: Identifier for each point within the path.
-- X: X coordinate of the point.
-- Y: Y coordinate of the point.
-
 ## Code Explanation
 - **read_csv**: Reads the input CSV file and parses path coordinates.
 - **write_csv**: Writes the smoothed path coordinates to a new CSV file.

@@ -1,42 +1,85 @@
 # Shape Completion and Correction
 
-## Overview
+Draw rough shapes by hand and get clean, regularized geometry back. The app
+recognizes what you meant (circle, square, star, ...), completes gaps,
+and snaps the result to tidy proportions and orientations.
 
-This Streamlit app allows users to upload a CSV file containing path coordinates, apply refined hybrid smoothing techniques to correct and smooth the paths, and then download the corrected CSV file. The app provides side-by-side comparisons of the original and smoothed data.
+![Shape Correction app](examples/app_screenshot.png)
 
-## Features
+## What it recognizes
 
-- **CSV Upload**: Upload a CSV file containing path coordinates.
-- **Refined Hybrid Smoothing**: Apply a hybrid smoothing method to correct and smooth path data.
-- **Visual Comparison**: View side-by-side plots of the original and smoothed data.
-- **Download**: Download the corrected CSV file.
+| Drawn stroke | Corrected to |
+| --- | --- |
+| tiny tap or scribble | **dot** |
+| roughly straight | **line** (snapped to horizontal / vertical / 45° when close) |
+| open, evenly curved | **arc** of a circle |
+| open with sharp turns | **polyline** with exact corners |
+| closed, round | **circle** or **ellipse** (axes snapped when close) |
+| closed, 4 right-ish angles | **rectangle** or **square** |
+| closed, 3 corners | **triangle** (equilateral only if it really looks equilateral) |
+| closed, 5+ near-equal sides | **regular polygon** (pentagon, hexagon, ...) |
+| outlined star or one-stroke pentagram | **regular star** |
+| anything else | smoothed **curve** (left as-is in spirit, just de-jittered) |
 
-## Requirements
+**Completion:**
+- Strokes whose ends nearly meet are closed. This works for both a small gap and an overshoot past the start.
+- Separate strokes whose endpoints touch are joined, so a square drawn as four lines becomes one square.
 
-To run this app, you need to have the following Python libraries installed:
+## How it works
 
-- `streamlit`
-- `pandas`
-- `numpy`
-- `svgwrite`
-- `cairosvg`
-- `matplotlib`
-- `scipy`
+`shape_correction.py` holds the engine. It has no UI code, so you can use it on its own.
 
-You can install these libraries using pip:
+1. **Resample** each stroke to evenly spaced points.
+2. **Closure detection** finds the best join between the start and end, so a
+   pentagram's self-crossing isn't mistaken for the closing point.
+3. **Corner detection** measures the turning angle over a sliding window on a
+   lightly smoothed copy, then applies non-maximum suppression.
+4. **Model fitting.** Candidates are a total-least-squares line, a geometric
+   circle fit, a direct ellipse fit (Fitzgibbon / Halir–Flusser), and a polygon
+   whose vertices are the *intersections of lines fitted to each edge*. Using
+   intersections rather than the raw corner points gives sharp corners even
+   when the drawn corners are rounded.
+5. **Model selection.** The simplest model that explains the points within a
+   size-relative tolerance wins. A polygon must have straight edges (low
+   residual and low bending) and must beat the ellipse clearly.
+6. **Regularization**: rectangles become axis-aligned and squares get equal
+   sides, near-regular polygons and stars become exactly regular, and
+   orientations snap to "nice" angles.
+
+All tolerances are relative to the stroke's size and are listed at the top of
+`shape_correction.py`.
+
+## Run it
 
 ```bash
-pip install streamlit pandas numpy svgwrite cairosvg matplotlib scipy
+pip install -r requirements.txt
+streamlit run app.py
 ```
-## Usage
-- Upload CSV File: Click the "Upload your CSV file" button and select a CSV file from your local machine.
-- View Comparison: The app will display a side-by-side comparison of the original and smoothed data.
-- Download Corrected CSV: Click the "Download corrected CSV" link to download the corrected path data.
 
-## Code Explanation
-- **read_csv**: Reads the input CSV file and parses path coordinates.
-- **write_csv**: Writes the smoothed path coordinates to a new CSV file.
-- **plot**: Plots the paths on a matplotlib axis.
-- **refined_hybrid_smoothing**: Applies smoothing based on linearity of the paths.
-- **plot_side_by_side_comparison**: Creates a side-by-side comparison plot of the original and smoothed data.
-- **main**: The main function that sets up the Streamlit app.
+- **Draw** mode: sketch on the canvas and the corrected version appears beside it.
+- **Upload CSV** mode: rows of `path_id, segment_id, x, y` (header optional).
+  Try `examples/sample_drawing.csv`.
+
+You can download the result as CSV or SVG.
+
+### Use the engine directly
+
+```python
+import shape_correction as sc
+
+shapes = sc.correct_drawing(strokes)   # strokes: list of (N, 2) arrays
+for s in shapes:
+    print(s.label, s.params)           # e.g. "hexagon", {"n": 6}
+    s.points                           # clean outline as an (M, 2) array
+```
+
+## Tests
+
+```bash
+pytest -q
+```
+
+The tests generate synthetic "hand-drawn" shapes with wobble, jitter, tilt,
+gaps and overshoot, then check recognition across many random seeds. They
+also check that irregular shapes are **not** over-corrected, for example that
+a scalene triangle stays scalene and a free-form blob stays a curve.

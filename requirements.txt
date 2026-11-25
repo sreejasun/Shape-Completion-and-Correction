@@ -1,4 +1,7 @@
-svgwrite
-cairosvg
+numpy
 scipy
+pandas
 matplotlib
+streamlit>=1.53
+streamlit-drawable-canvas>=0.13
+pytest
